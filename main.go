@@ -2,32 +2,18 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
+	"time"
 )
 
 func main() {
-	// Debugging-Ausgabe: Start der Anwendung
-	fmt.Println("Start der Anwendung")
+	fmt.Println("=== LocalEmailHealthChecker START ===")
 
-	// Beispiel: Versuche, eine Datei zu öffnen
-	file, err := os.Open("testfile.txt")
-	if err != nil {
-		// Fehlerbehandlung und Ausgabe im Fehlerfall
-		log.Printf("Fehler beim Öffnen der Datei: %v\n", err)
-		return
-	}
-	// Datei erfolgreich geöffnet
-	defer file.Close()
-	fmt.Println("Datei erfolgreich geöffnet!")
+	fmt.Println("Args:", os.Args)
 
-	// Weitere Programmlogik hinzufügen
-	// Beispiel: Daten verarbeiten oder Berechnungen durchführen
-	fmt.Println("Verarbeitung läuft...")
+	// TODO: eigentliche Logik kommt hier rein
+	fmt.Println("Program reached end of main()")
 
-	// Beispiel: Erfolgreiche Verarbeitung
-	fmt.Println("Verarbeitung abgeschlossen!")
-
-	// Zusammenfassung des Programms
-	fmt.Println("Anwendung beendet")
+	fmt.Println("Waiting 10 seconds before exit...")
+	time.Sleep(10 * time.Second)
 }
