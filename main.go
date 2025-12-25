@@ -1,42 +1,66 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
+	"os"
+	"os/exec"
+	"runtime"
+	"time"
 )
 
+func openBrowser(url string) {
+	var cmd string
+	var args []string
+
+	switch runtime.GOOS {
+	case "windows":
+		cmd = "rundll32"
+		args = []string{"url.dll,FileProtocolHandler", url}
+	case "darwin":
+		cmd = "open"
+		args = []string{url}
+	default: // linux, etc.
+		cmd = "xdg-open"
+		args = []string{url}
+	}
+
+	_ = exec.Command(cmd, args...).Start()
+}
+
 func main() {
-	http.Handle("/assets/",
-		http.StripPrefix("/assets/",
-			http.FileServer(http.Dir("./assets"))))
+	port := "8080"
+	url := "http://127.0.0.1:" + port
 
+	// 1️⃣ Root → index.html
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/assets/", http.StatusFound)
-	})
-
-	http.HandleFunc("/api/parse", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		// nur exakt "/" hier abfangen
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
 			return
 		}
-
-		var payload struct {
-			Input string `json:"input"`
-		}
-
-		if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		parsed := ParseEmails(payload.Input)
-		validated := ValidateEmails(parsed)
-
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(validated)
+		http.ServeFile(w, r, "assets/index.html")
 	})
 
-	log.Println("Server running on http://127.0.0.1:8080")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	// 2️⃣ Statische Assets (/assets/*)
+	fs := http.FileServer(http.Dir("assets"))
+	http.Handle("/assets/", http.StripPrefix("/assets/", fs))
+
+	// 3️⃣ API (bereits vorhanden)
+	http.HandleFunc("/api/parse", handleParse)
+
+	// 4️⃣ Server starten
+	go func() {
+		log.Println("Server running on", url)
+		if err := http.ListenAndServe(":"+port, nil); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	// 5️⃣ Kurz warten, dann Browser öffnen
+	time.Sleep(300 * time.Millisecond)
+	openBrowser(url)
+
+	// 6️⃣ Blockieren (EXE soll laufen)
+	select {}
 }
