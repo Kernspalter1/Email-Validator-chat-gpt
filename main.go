@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"os/exec"
 	"runtime"
 	"time"
@@ -18,7 +17,7 @@ const (
 func main() {
 	fmt.Println("=== LocalEmailHealthChecker START ===")
 
-	// 1. HTTP-Server konfigurieren
+	// HTTP-Server konfigurieren
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", indexHandler)
 
@@ -27,7 +26,7 @@ func main() {
 		Handler: mux,
 	}
 
-	// 2. Server im Hintergrund starten
+	// Server im Hintergrund starten
 	go func() {
 		fmt.Println("Starting local server on http://" + host + ":" + fmt.Sprint(port))
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -35,13 +34,13 @@ func main() {
 		}
 	}()
 
-	// 3. Kurz warten, damit Server sicher läuft
+	// Kurz warten, damit der Server sicher läuft
 	time.Sleep(500 * time.Millisecond)
 
-	// 4. Browser öffnen
+	// Browser öffnen
 	openBrowser(fmt.Sprintf("http://%s:%d", host, port))
 
-	// 5. Blockieren, damit EXE nicht sofort endet
+	// Blockieren, damit EXE nicht sofort endet
 	fmt.Println("Server running. Press CTRL+C to exit.")
 	select {}
 }
