@@ -3,11 +3,11 @@ package main
 import (
 	"log"
 	"net/http"
-	"os"
 	"os/exec"
 	"runtime"
 )
 
+// Öffnet Standard-Browser
 func openBrowser(url string) {
 	var cmd *exec.Cmd
 
@@ -26,17 +26,17 @@ func openBrowser(url string) {
 func main() {
 	port := "8080"
 
-	// 1. Statische Assets unter /assets/ bereitstellen
-	fs := http.FileServer(http.Dir("./assets"))
-	http.Handle("/assets/", http.StripPrefix("/assets/", fs))
+	// 1. Statische Assets bereitstellen
+	fileServer := http.FileServer(http.Dir("./assets"))
+	http.Handle("/assets/", http.StripPrefix("/assets/", fileServer))
 
-	// 2. Root "/" explizit auf assets/index.html mappen
+	// 2. Root "/" -> index.html
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "./assets/index.html")
 	})
 
-	// 3. API-Endpunkte
-	http.HandleFunc("/api/parse", handleParse)
+	// 3. API-Endpunkt
+	http.HandleFunc("/api/parse", parseHandler)
 
 	url := "http://127.0.0.1:" + port
 	log.Println("Server running on", url)
