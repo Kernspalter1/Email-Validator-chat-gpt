@@ -11,35 +11,20 @@
 
 <textarea id="input" placeholder="Paste emails here (one per line)"></textarea>
 
-<div>
-  <label><input type="checkbox" id="dupes"> Include duplicates</label>
-</div>
-
 <button id="btnRun">Validate</button>
 
-<h2>Results</h2>
-<table id="table">
-  <thead>
-    <tr><th>Email</th><th>Status</th><th>Reason</th></tr>
-  </thead>
-  <tbody></tbody>
+<h2>Parsed Result</h2>
+
+<table>
+<thead>
+<tr>
+  <th>Email</th>
+  <th>Duplicate</th>
+</tr>
+</thead>
+<tbody id="tableBody"></tbody>
 </table>
-
-<h2>TXT Output</h2>
-
-<label>
-  <select id="mode">
-    <option value="accepted">Accepted</option>
-    <option value="accepted_uncertain">Accepted + Uncertain</option>
-  </select>
-</label>
-
-<button id="btnCopy">Copy</button>
-<button id="btnDownload">Download TXT</button>
-
-<textarea id="output" placeholder="Output will appear here..."></textarea>
 
 <script src="app.js"></script>
 </body>
 </html>
-
