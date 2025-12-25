@@ -3,58 +3,47 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"runtime"
-	"time"
 )
 
 func openBrowser(url string) {
-	var cmd string
-	var args []string
+	var cmd *exec.Cmd
 
 	switch runtime.GOOS {
 	case "windows":
-		cmd = "rundll32"
-		args = []string{"url.dll,FileProtocolHandler", url}
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
 	case "darwin":
-		cmd = "open"
-		args = []string{url}
+		cmd = exec.Command("open", url)
 	default:
-		cmd = "xdg-open"
-		args = []string{url}
+		cmd = exec.Command("xdg-open", url)
 	}
 
-	_ = exec.Command(cmd, args...).Start()
+	_ = cmd.Start()
 }
 
 func main() {
 	port := "8080"
-	url := "http://127.0.0.1:" + port
 
-	// Root → GUI
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			http.NotFound(w, r)
-			return
-		}
-		http.ServeFile(w, r, "assets/index.html")
-	})
-
-	// Static assets
-	fs := http.FileServer(http.Dir("assets"))
+	// 1. Statische Assets unter /assets/ bereitstellen
+	fs := http.FileServer(http.Dir("./assets"))
 	http.Handle("/assets/", http.StripPrefix("/assets/", fs))
 
-	// Server starten
-	go func() {
-		log.Println("Server running on", url)
-		if err := http.ListenAndServe(":"+port, nil); err != nil {
-			log.Fatal(err)
-		}
-	}()
+	// 2. Root "/" explizit auf assets/index.html mappen
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./assets/index.html")
+	})
 
-	// Browser automatisch öffnen
-	time.Sleep(300 * time.Millisecond)
-	openBrowser(url)
+	// 3. API-Endpunkte
+	http.HandleFunc("/api/parse", handleParse)
 
-	select {}
+	url := "http://127.0.0.1:" + port
+	log.Println("Server running on", url)
+
+	// 4. Browser automatisch öffnen
+	go openBrowser(url)
+
+	// 5. Server starten
+	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
