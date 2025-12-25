@@ -10,7 +10,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Setup Go
@@ -18,11 +18,28 @@ jobs:
         with:
           go-version: "1.22.x"
 
-      - name: Build
-        run: go build -ldflags="-s -w" -o LocalEmailHealthChecker.exe .
+      - name: Build Windows amd64 EXE
+        shell: pwsh
+        run: |
+          $env:GOOS = "windows"
+          $env:GOARCH = "amd64"
+          go build -ldflags="-s -w" -o LocalEmailHealthChecker.exe .
+          Write-Host "Build directory contents:"
+          dir
+
+      - name: Verify EXE exists and show metadata
+        shell: pwsh
+        run: |
+          if (!(Test-Path ".\LocalEmailHealthChecker.exe")) {
+            Write-Error "ERROR: LocalEmailHealthChecker.exe was not created"
+          }
+          Get-Item ".\LocalEmailHealthChecker.exe" | Format-List Name,Length,LastWriteTime
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: LocalEmailHealthChecker
           path: LocalEmailHealthChecker.exe
+          if-no-files-found: error
+          retention-days: 30
+
