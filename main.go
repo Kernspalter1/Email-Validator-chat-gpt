@@ -1,77 +1,106 @@
 package main
 
 import (
+	"embed"
 	"encoding/json"
 	"log"
 	"net/http"
+	"os/exec"
+	"runtime"
 )
 
-// ----------------------------
-// Main
-// ----------------------------
+// =====================
+// EMBED ASSETS
+// =====================
+
+//go:embed assets/*
+var embeddedAssets embed.FS
+
+// =====================
+// MAIN
+// =====================
+
 func main() {
 	mux := http.NewServeMux()
 
-	// 1️⃣ Statische Assets (CSS, JS)
-	// Zugriff z.B. auf /assets/app.js
-	fileServer := http.FileServer(http.Dir("./assets"))
+	// 1️⃣ Root → index.html aus assets/
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/" {
+			http.NotFound(w, r)
+			return
+		}
+
+		data, err := embeddedAssets.ReadFile("assets/index.html")
+		if err != nil {
+			http.Error(w, "index.html not found", http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Write(data)
+	})
+
+	// 2️⃣ Statische Dateien (JS, CSS)
+	fileServer := http.FileServer(http.FS(embeddedAssets))
 	mux.Handle("/assets/", http.StripPrefix("/assets/", fileServer))
 
-	// 2️⃣ Root -> index.html
-	// Damit http://127.0.0.1:8080 direkt die GUI lädt
-	mux.HandleFunc("/", serveIndex)
+	// 3️⃣ API: /parse  (nutzt parser.go)
+	mux.HandleFunc("/parse", handleParse)
 
-	// 3️⃣ API Endpoint
-	mux.HandleFunc("/validate", validateHandler)
+	addr := "127.0.0.1:8080"
+	log.Println("Server running on http://" + addr)
 
-	log.Println("Server running on http://127.0.0.1:8080")
-	log.Fatal(http.ListenAndServe(":8080", mux))
-}
+	// Browser automatisch öffnen
+	go openBrowser("http://" + addr)
 
-// ----------------------------
-// Handlers
-// ----------------------------
-
-// serveIndex liefert IMMER die GUI aus
-func serveIndex(w http.ResponseWriter, r *http.Request) {
-	// Optional: nur GET erlauben
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
+	// Server starten
+	err := http.ListenAndServe(addr, mux)
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	http.ServeFile(w, r, "./assets/index.html")
 }
 
-// validateHandler verarbeitet die Eingabe aus dem Frontend
-func validateHandler(w http.ResponseWriter, r *http.Request) {
+// =====================
+// API HANDLER
+// =====================
+
+func handleParse(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Erwartet JSON vom Frontend
-	// z.B. { "input": "a@gmail.com\nb@gmail.com" }
 	var req struct {
 		Input string `json:"input"`
 	}
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	err := json.NewDecoder(r.Body).Decode(&req)
+	if err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	// 👉 HIER kommt später dein Parser rein
-	// z.B.:
-	// results := ParseEmails(req.Input)
-	// validated := Validate(results)
-
-	// Platzhalter-Antwort (damit Frontend funktioniert)
-	resp := map[string]interface{}{
-		"status":  "ok",
-		"message": "backend wired successfully",
-	}
+	results := ParseEmails(req.Input)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	json.NewEncoder(w).Encode(results)
+}
+
+// =====================
+// BROWSER AUTO OPEN
+// =====================
+
+func openBrowser(url string) {
+	var cmd *exec.Cmd
+
+	switch runtime.GOOS {
+	case "windows":
+		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+	case "darwin":
+		cmd = exec.Command("open", url)
+	default:
+		cmd = exec.Command("xdg-open", url)
+	}
+
+	_ = cmd.Start()
 }
