@@ -4,48 +4,32 @@ import (
 	"strings"
 )
 
-type EmailEntry struct {
-	Email          string
-	IsDuplicate    bool
-	FirstSeenIndex int
-	OriginalLine   int
-}
-
-// ParseEmailsFromText
-// - takes raw TXT input (one email per line)
-// - normalizes emails (trim + lowercase)
-// - detects duplicates
-// - DOES NOT delete anything
-func ParseEmailsFromText(input string) []EmailEntry {
+// ParseEmails nimmt rohen Text (eine Mail pro Zeile)
+// und gibt eine einfache Struktur zurück.
+// DAS ist nur der Parser – keine Validation hier!
+func ParseEmails(input string) []ParsedEmail {
 	lines := strings.Split(input, "\n")
 
-	seen := make(map[string]int) // email -> first index
-	result := make([]EmailEntry, 0, len(lines))
+	seen := make(map[string]bool)
+	results := []ParsedEmail{}
 
-	for i, raw := range lines {
-		email := strings.TrimSpace(raw)
+	for _, line := range lines {
+		email := strings.TrimSpace(line)
 		if email == "" {
 			continue
 		}
 
-		email = strings.ToLower(email)
-
-		entry := EmailEntry{
-			Email:        email,
-			OriginalLine: i,
+		duplicate := false
+		if seen[email] {
+			duplicate = true
 		}
+		seen[email] = true
 
-		if firstIndex, exists := seen[email]; exists {
-			entry.IsDuplicate = true
-			entry.FirstSeenIndex = firstIndex
-		} else {
-			seen[email] = len(result)
-			entry.IsDuplicate = false
-			entry.FirstSeenIndex = len(result)
-		}
-
-		result = append(result, entry)
+		results = append(results, ParsedEmail{
+			Email:     email,
+			Duplicate: duplicate,
+		})
 	}
 
-	return result
+	return results
 }
