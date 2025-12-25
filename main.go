@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 	"net/http"
-	"os"
 	"os/exec"
 	"runtime"
 	"time"
@@ -20,7 +19,7 @@ func openBrowser(url string) {
 	case "darwin":
 		cmd = "open"
 		args = []string{url}
-	default: // linux, etc.
+	default:
 		cmd = "xdg-open"
 		args = []string{url}
 	}
@@ -32,9 +31,8 @@ func main() {
 	port := "8080"
 	url := "http://127.0.0.1:" + port
 
-	// 1️⃣ Root → index.html
+	// Root → GUI
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// nur exakt "/" hier abfangen
 		if r.URL.Path != "/" {
 			http.NotFound(w, r)
 			return
@@ -42,14 +40,11 @@ func main() {
 		http.ServeFile(w, r, "assets/index.html")
 	})
 
-	// 2️⃣ Statische Assets (/assets/*)
+	// Static assets
 	fs := http.FileServer(http.Dir("assets"))
 	http.Handle("/assets/", http.StripPrefix("/assets/", fs))
 
-	// 3️⃣ API (bereits vorhanden)
-	http.HandleFunc("/api/parse", handleParse)
-
-	// 4️⃣ Server starten
+	// Server starten
 	go func() {
 		log.Println("Server running on", url)
 		if err := http.ListenAndServe(":"+port, nil); err != nil {
@@ -57,10 +52,9 @@ func main() {
 		}
 	}()
 
-	// 5️⃣ Kurz warten, dann Browser öffnen
+	// Browser automatisch öffnen
 	time.Sleep(300 * time.Millisecond)
 	openBrowser(url)
 
-	// 6️⃣ Blockieren (EXE soll laufen)
 	select {}
 }
