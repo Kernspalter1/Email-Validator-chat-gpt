@@ -2,6 +2,8 @@ package main
 
 import (
 	"embed"
+	"encoding/json"
+	"io"
 	"io/fs"
 	"log"
 	"net/http"
@@ -34,20 +36,44 @@ func openBrowser(url string) {
 	_ = cmd.Start()
 }
 
+// ===============================
+// API: /api/parse
+// ===============================
+func handleParse(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "cannot read body", http.StatusBadRequest)
+		return
+	}
+
+	parsed := ParseEmails(string(body))
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(parsed)
+}
+
+// ===============================
+// MAIN
+// ===============================
 func main() {
 	port := "8080"
 
-	// Sub-FS nur für assets
 	assetsFS, err := fs.Sub(embeddedAssets, "assets")
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// 1️⃣ Statische Dateien (JS, CSS, etc.)
-	fileServer := http.FileServer(http.FS(assetsFS))
-	http.Handle("/assets/", http.StripPrefix("/assets/", fileServer))
+	// Statische Assets
+	http.Handle("/assets/", http.StripPrefix("/assets/",
+		http.FileServer(http.FS(assetsFS)),
+	))
 
-	// 2️⃣ Root → index.html aus embed
+	// Root → index.html
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		f, err := assetsFS.Open("index.html")
 		if err != nil {
@@ -57,18 +83,16 @@ func main() {
 		defer f.Close()
 
 		w.Header().Set("Content-Type", "text/html")
-		_, _ = w.ReadFrom(f)
+		_, _ = io.Copy(w, f)
 	})
 
-	// 3️⃣ API
+	// API
 	http.HandleFunc("/api/parse", handleParse)
 
 	url := "http://127.0.0.1:" + port
 	log.Println("Server running on", url)
 
-	// 4️⃣ Browser automatisch öffnen
 	go openBrowser(url)
 
-	// 5️⃣ Server starten
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }
