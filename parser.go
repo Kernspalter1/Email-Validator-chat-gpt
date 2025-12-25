@@ -1,8 +1,6 @@
 package main
 
-import (
-	"strings"
-)
+import "strings"
 
 func ParseEmails(input string) []ParsedEmail {
 	lines := strings.Split(input, "\n")
