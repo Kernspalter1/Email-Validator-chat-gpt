@@ -12,45 +12,64 @@ import (
 	"time"
 )
 
+// Embed everything under assets/
 //go:embed assets/*
-var assets embed.FS
+var embedded embed.FS
 
 const addr = "127.0.0.1:8080"
 
-type Request struct {
-	Emails           []string `json:"emails"`
+type ValidateRequest struct {
+	Emails            []string `json:"emails"`
 	IncludeDuplicates bool     `json:"includeDuplicates"`
 }
 
-type Result struct {
+type ValidateResult struct {
 	Email  string `json:"email"`
-	Status string `json:"status"`
+	Status string `json:"status"` // accepted | uncertain | rejected
 	Reason string `json:"reason"`
-	Rank   int    `json:"-"`
 }
 
 func main() {
 	mux := http.NewServeMux()
 
-	mux.Handle("/", http.FileServer(http.FS(assets)))
-	mux.HandleFunc("/validate", validateHandler)
+	// Serve embedded static files
+	mux.Handle("/", http.FileServer(http.FS(embedded)))
 
+	// Backend endpoint
+	mux.HandleFunc("/validate", handleValidate)
+
+	// Start server
 	go func() {
 		log.Println("Server running at http://" + addr)
-		log.Fatal(http.ListenAndServe(addr, mux))
+		if err := http.ListenAndServe(addr, mux); err != nil {
+			log.Fatal(err)
+		}
 	}()
 
+	// Give server a moment
 	time.Sleep(400 * time.Millisecond)
+
+	// Open browser
 	openBrowser("http://" + addr)
+
+	// Keep running
 	select {}
 }
 
-func validateHandler(w http.ResponseWriter, r *http.Request) {
-	var req Request
-	json.NewDecoder(r.Body).Decode(&req)
+func handleValidate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
 
-	seen := map[string]bool{}
-	results := []Result{}
+	var req ValidateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	seen := make(map[string]bool)
+	out := make([]ValidateResult, 0, len(req.Emails))
 
 	for _, raw := range req.Emails {
 		email := strings.TrimSpace(strings.ToLower(raw))
@@ -58,6 +77,7 @@ func validateHandler(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
+		// Remove duplicates by default, unless checkbox is enabled
 		if !req.IncludeDuplicates {
 			if seen[email] {
 				continue
@@ -65,28 +85,32 @@ func validateHandler(w http.ResponseWriter, r *http.Request) {
 			seen[email] = true
 		}
 
-		res := dummyValidate(email)
-		results = append(results, res)
+		out = append(out, dummyValidate(email))
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(results)
+	_ = json.NewEncoder(w).Encode(out)
 }
 
-func dummyValidate(email string) Result {
+// Dummy logic ONLY for Step 1 (UI + TXT workflow)
+// Later we replace this with real MX/SMTP checks.
+func dummyValidate(email string) ValidateResult {
 	if strings.HasSuffix(email, "@gmail.com") {
-		return Result{email, "accepted", "SMTP accepted", 1}
+		return ValidateResult{Email: email, Status: "accepted", Reason: "SMTP accepted (dummy)"}
 	}
 	if strings.IndexAny(email, "0123456789") >= 0 {
-		return Result{email, "uncertain", "SMTP unclear", 2}
+		return ValidateResult{Email: email, Status: "uncertain", Reason: "SMTP unclear (dummy)"}
 	}
-	return Result{email, "rejected", "No SMTP", 3}
+	return ValidateResult{Email: email, Status: "rejected", Reason: "No SMTP (dummy)"}
 }
 
 func openBrowser(url string) {
-	var cmd *exec.Cmd
+	fmt.Println("Opening:", url)
+
 	if runtime.GOOS == "windows" {
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
+		_ = exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
+		return
 	}
-	cmd.Start()
+	// Other OS not needed (Windows only), but harmless:
+	_ = exec.Command("xdg-open", url).Start()
 }
