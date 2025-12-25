@@ -14,9 +14,7 @@ func ParseEmails(input string) []ParsedEmail {
 			continue
 		}
 
-		pe := ParsedEmail{
-			Email: email,
-		}
+		pe := ParsedEmail{Email: email}
 
 		if seen[email] {
 			pe.Duplicate = true
